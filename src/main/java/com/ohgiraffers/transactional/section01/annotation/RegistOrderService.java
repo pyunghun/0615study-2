@@ -3,6 +3,7 @@ package com.ohgiraffers.transactional.section01.annotation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,10 +13,12 @@ import java.util.stream.Collectors;
 public class RegistOrderService {
 
     private MenuMapper menuMapper;
+    private OrderMapper orderMapper;
 
     @Autowired
-    public RegistOrderService(MenuMapper menuMapper) {
+    public RegistOrderService(MenuMapper menuMapper, OrderMapper orderMapper) {
         this.menuMapper = menuMapper;
+        this.orderMapper =orderMapper;
 
     }
 
@@ -33,5 +36,48 @@ public class RegistOrderService {
         
         List<Menu> menus = menuMapper.findMenusByMenuCode(map);
         menus.forEach(System.out::println);
+        
+        int totalOrderPrice = calcTotalOrderPrice(orderInfo.getOrderMenus(), menus);
+
+        System.out.println("totalOrderPrice = " + totalOrderPrice);
+        
+        List<OrderMenu> orderMenus = orderInfo.getOrderMenus()
+                        .stream()
+                        .map(dto -> {
+                            return new OrderMenu(dto.getMenuCode(), dto.getOrderAmount());
+                        }).collect(Collectors.toList()
+        );
+        
+        Order order = new Order(orderInfo.getOrderDate(), orderInfo.getOrderTime(), totalOrderPrice, orderMenus);
+
+        System.out.println("order = " + order);
+
+        orderMapper.registOrder(order);
+
+        System.out.println("order = " + order);
+
+        int orderMenuSize = orderMenus.size();
+        for(int i = 0; i < orderMenuSize; i++) {
+            OrderMenu orderMenu = orderMenus.get(i);
+            orderMenu.setOrderCode(order.getOrderCode());
+
+            orderMapper.registOrderMenu(orderMenu);
+
+        }
     }
+    
+    private int calcTotalOrderPrice(List<OrderMenuDTO> orderMenus, List<Menu> menus) {
+        
+        int totalOrderPrice = 0;
+        
+        int orderMenuSize = orderMenus.size();
+        for (int i = 0; i < orderMenuSize; i++) {
+            OrderMenuDTO orderMenu = orderMenus.get(i);
+            Menu menu = menus.get(i);
+            
+            totalOrderPrice += menu.getMenuPrice() * orderMenu.getOrderAmount();
+        }
+        return totalOrderPrice;
+    }
+    
 }
